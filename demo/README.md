@@ -7,7 +7,7 @@ This is what produced the screenshots in the top-level README.
 
 ```bash
 docker-compose up -d                       # Kafka on :9092, Kafka UI on :8081
-mvn -f .. install -DskipTests              # publish com.komiter:komiter_2.12:3.5.4 locally
+mvn -f .. install -DskipTests              # publish com.komiter:komiter_2.12:3.5.5 locally
 
 docker exec komiter-kafka /opt/kafka/bin/kafka-topics.sh \
   --bootstrap-server localhost:9092 --create --topic orders --partitions 6 --replication-factor 1
