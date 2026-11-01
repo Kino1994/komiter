@@ -1,0 +1,20 @@
+Komiter
+Copyright 2025-2026 Joaquín de Vicente
+
+This product includes software originally developed as
+spark-sql-kafka-offset-committer:
+
+    Copyright 2019-2021 Jungtaek Lim <kabhwan@gmail.com>
+    https://github.com/HeartSaVioR/spark-sql-kafka-offset-committer
+
+licensed under the Apache License, Version 2.0.
+
+The reflection-based approach for extracting Kafka parameters from a Spark query
+execution plan was in turn adapted from Spark Atlas Connector:
+
+    https://github.com/hortonworks-spark/spark-atlas-connector
+
+src/main/scala/com/komiter/ReflectionHelper.scala derives from Apache Spark:
+
+    Copyright The Apache Software Foundation
+    https://github.com/apache/spark

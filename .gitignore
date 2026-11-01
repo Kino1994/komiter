@@ -1,0 +1,29 @@
+# Build
+target/
+dependency-reduced-pom.xml
+__pycache__/
+*.pyc
+
+# Editors / OS
+*#*#
+*.#*
+*.iml
+*.ipr
+*.iws
+*.swp
+*~
+.DS_Store
+.cache
+.classpath
+.idea/
+.idea_modules/
+.project
+.settings
+
+# Test and runtime output
+*.crc
+derby.log
+log/
+logs/
+out/
+unit-tests.log

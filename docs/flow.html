@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  Renders the How-it-works diagram to img/flow.png. It is a static image rather than a
+  ```mermaid block in the README because GitHub wraps every mermaid block in an interactive
+  pan-and-zoom viewer whose controls sit on top of the diagram, and that cannot be turned off.
+
+  Rendering it here rather than hand-drawing it keeps the familiar mermaid look. See
+  docs/README.md for the command.
+-->
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  /* Padding so the diagram does not sit flush against the crop edges. */
+  #wrap { display: inline-block; padding: 28px 32px; background: #ffffff; }
+</style>
+<div id="wrap"><pre class="mermaid">
+flowchart TD
+  S["Spark micro-batch completes"]
+  L["Komiter"]
+  I["KafkaSourceInspector"]
+  O[("__consumer_offsets")]
+  T["kafka-consumer-groups<br/>Kafka UI<br/>Burrow"]
+
+  S -->|onQueryProgress| L
+  L -->|walks the plan| I
+  I -->|params + offsets| L
+  L -->|commitSync| O
+  O -->|reads lag| T
+</pre></div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  const m = (window.mermaid || window.__esbuild_esm_mermaid_nm?.mermaid);
+  // Short edge labels on purpose: long ones push the ranks apart and the diagram sprawls.
+  m.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    flowchart: { useMaxWidth: false, nodeSpacing: 34, rankSpacing: 42, curve: 'basis' },
+  });
+  m.run({ querySelector: '.mermaid' }).then(() => { document.title = 'MERMAID_READY'; });
+</script>
