@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Spark-3.5.9-E25A1C?style=flat-square" alt="Spark 3.5.9">
-  <img src="https://img.shields.io/badge/Scala-2.12%20%C2%B7%202.13-DC322F?style=flat-square" alt="Scala 2.12 · 2.13">
-  <img src="https://img.shields.io/badge/Java-8-007396?style=flat-square" alt="Java 8">
+  <img src="https://img.shields.io/badge/Spark-4.0.0-E25A1C?style=flat-square" alt="Spark 4.0.0">
+  <img src="https://img.shields.io/badge/Scala-2.13-DC322F?style=flat-square" alt="Scala 2.13">
+  <img src="https://img.shields.io/badge/Java-17-007396?style=flat-square" alt="Java 17">
   <img src="https://img.shields.io/badge/License-Apache%202.0-4c1?style=flat-square" alt="Apache 2.0">
 </p>
 
@@ -73,8 +73,8 @@ komiter-demo  orders  5          223661          259733          36072
 ```xml
 <dependency>
   <groupId>com.komiter</groupId>
-  <artifactId>komiter_2.12</artifactId>
-  <version>3.5.9</version>
+  <artifactId>komiter_2.13</artifactId>
+  <version>4.0.0</version>
 </dependency>
 ```
 
@@ -154,7 +154,7 @@ This build targets:
 
 | Spark | Scala | Java | Kafka clients |
 |-------|-------|------|---------------|
-| 3.5.9 | 2.12 · 2.13 | 8 | 3.4.1 |
+| 4.0.0 | 2.13 | 17 | 3.9.0 |
 
 Every Spark release Apache still maintains is supported — **3.5.0 onwards**, twenty-four of them,
 each its own tag. The floor is not arbitrary: Spark 3.5 is the last 3.x line under

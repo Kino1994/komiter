@@ -19,7 +19,7 @@ package com.komiter
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 import org.apache.kafka.clients.consumer.{KafkaConsumer, OffsetAndMetadata}

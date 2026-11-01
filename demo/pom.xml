@@ -5,22 +5,22 @@
 
     <groupId>com.komiter</groupId>
     <artifactId>komiter-demo</artifactId>
-    <version>3.5.9</version>
+    <version>4.0.0</version>
     <packaging>jar</packaging>
 
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <scala.version>2.12.18</scala.version>
-        <scala.compat.version>2.12</scala.compat.version>
-        <spark.version>3.5.9</spark.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <scala.version>2.13.16</scala.version>
+        <scala.compat.version>2.13</scala.compat.version>
+        <spark.version>4.0.0</spark.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.komiter</groupId>
-            <artifactId>komiter_2.12</artifactId>
-            <version>3.5.9</version>
+            <artifactId>komiter_2.13</artifactId>
+            <version>4.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
