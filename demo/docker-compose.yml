@@ -2,7 +2,7 @@ name: komiter-demo
 
 services:
   kafka:
-    # Kafka 3.4.1 is what Spark 3.5.8 builds against, but the official
+    # Kafka 3.4.1 is what Spark 3.5.9 builds against, but the official
     # image only goes back to 3.7.0; a newer broker serves an older
     # client fine, so that is what runs here.
     image: apache/kafka:3.7.0
