@@ -26,7 +26,7 @@ import org.apache.kafka.clients.consumer.{KafkaConsumer, OffsetAndMetadata}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.execution.streaming.{StreamExecution, StreamingQueryWrapper}
+import org.apache.spark.sql.execution.streaming.runtime.{StreamExecution, StreamingQueryWrapper}
 import org.apache.spark.sql.kafka010.KafkaSourceInspector
 import org.apache.spark.sql.streaming.{SourceProgress, StreamingQueryListener}
 
