@@ -125,10 +125,10 @@ class KafkaSourceInspector(sparkPlan: SparkPlan) {
     val mapsList: Seq[Map[String, Object]] = r.inputRDDs().flatMap { rdd =>
       rdd.partitions.flatMap {
         case e: DataSourceRDDPartition =>
-          // `DataSourceRDDPartition` holds a `Seq[InputPartition]` on this Spark
-          // version; `collect` keeps only the Kafka ones and the outer `flatMap`
-          // flattens the result.
-          e.inputPartitions.collect {
+          // Spark 4.2 changed `DataSourceRDDPartition` to hold a single
+          // `inputPartition: Option[InputPartition]` instead of a `Seq`; `collect`
+          // works the same over the Option and is flattened by the outer `flatMap`.
+          e.inputPartition.collect {
             case part: KafkaBatchInputPartition =>
               part.executorKafkaParams.asScala.toMap
             case part: KafkaContinuousInputPartition =>

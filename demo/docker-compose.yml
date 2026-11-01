@@ -2,8 +2,8 @@ name: komiter-demo
 
 services:
   kafka:
-    # Matches the Kafka client Spark 4.1.4 builds against.
-    image: apache/kafka:3.9.1
+    # Matches the Kafka client Spark 4.2.0 builds against.
+    image: apache/kafka:3.9.2
     container_name: komiter-kafka
     ports:
       # EXTERNAL listener, for the Spark job running on the host.
