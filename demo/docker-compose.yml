@@ -2,7 +2,7 @@ name: komiter-demo
 
 services:
   kafka:
-    # Matches the Kafka client Spark 4.0.1 builds against.
+    # Matches the Kafka client Spark 4.0.2 builds against.
     image: apache/kafka:3.9.1
     container_name: komiter-kafka
     ports:
