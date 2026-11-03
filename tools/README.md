@@ -81,6 +81,24 @@ Compiling every version proves the APIs line up; this proves the behaviour does.
 for all twenty-four would spend a lot of wall clock re-proving the same thing, since within
 a variant the source is identical and Spark's patch releases are API-compatible.
 
+## Coverage
+
+```bash
+mvn scoverage:report    # target/site/scoverage/index.html
+mvn scoverage:check     # fails below 95% of statements or 90% of branches
+```
+
+The scoverage plugin is declared in the pom that `retarget.py` writes, but not bound to the
+lifecycle: it recompiles everything instrumented, so an ordinary build does not pay for it.
+It needs Maven to run on JDK 17, whatever Java the release targets. The test JVM gets the
+module opens Spark's own launcher passes on 17, without which Spark 3.5 will not start there.
+
+The minimums sit a little under what the suite reaches (97.0% of statements and 94.4% of
+branches on Spark 4.3.0), so a change that drops coverage fails the check without the small
+differences between Spark lines tripping it. What is left uncovered on 4.x are the three
+lines for a leaf without a stream handle, which only Spark 3.5 produces: from 4.0 every
+streaming scan carries its stream and always finds its source.
+
 ## `check-deps.py` and `audit.sh`
 
 ```bash
@@ -121,32 +139,12 @@ log as chronology.
 It is destructive — it replaces `main` — and leaves the previous `main` behind as
 `pre-history-<sha>`.
 
-## `publish.sh`
+## Publishing
 
-```bash
-tools/publish.sh                # every tag, oldest first
-tools/publish.sh v4.3.0         # just this one
-```
-
-Publishes to Maven Central **one tag at a time**. Each release is built from a clean worktree
-of its own tag rather than by retargeting the current tree, so the artifact for Spark X is
-exactly what `vX` holds. Where Spark ships both Scala binaries, both are published.
-
-A release that is already on Central is skipped, so an interrupted run can just be started
-again. By default each release is left as a draft in the Central Portal (Deployments) to be
-reviewed and published by hand; `AUTO_PUBLISH=true` publishes straight away. `SKIP_TESTS=1`
-skips the suite, for a backfill already proven by `verify-tests.sh`.
-
-It activates the `release` profile that `retarget.py` writes into every pom: sources,
-scaladoc as the javadoc jar, GPG signatures and the Central Portal plugin. A normal build
-never touches any of it, so it needs no signing key.
-
-It needs the Portal user token in `~/.m2/settings.xml`, under a `<server>` with id `central`,
-and a GPG key whose public half is on a keyserver.
-
-`.github/workflows/release.yml` runs it in CI for each `v*` tag pushed, with `AUTO_PUBLISH`
-on. Publishing to Central is permanent — a version can never be replaced — so push a tag
-only once its commit is the release.
+Nothing in this repository publishes. Releases go to Maven Central from
+[komiter-release](https://github.com/Kino1994/komiter-release), which builds each one from a
+worktree of its tag here and adds what Central needs on top of the pom: sources, scaladoc as
+the javadoc jar, signatures, and the url/developers/scm metadata.
 
 ## Adding a Spark release
 
@@ -156,4 +154,4 @@ only once its commit is the release.
 2. `tools/verify-all.sh <version>` — if the internals moved, this is where it shows up.
    `tools/verify-tests.sh <version>` if it needed a new variant.
 3. `python3 tools/retarget.py <version>`, commit, tag `v<version>`.
-4. `git push origin main v<version>` — the release workflow publishes it.
+4. `git push origin main v<version>`, then publish the tag from komiter-release.

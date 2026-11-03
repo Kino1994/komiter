@@ -16,7 +16,6 @@
 
     <name>Komiter</name>
     <description>Kafka offset committer for Spark Structured Streaming, built for Spark 4.3.0</description>
-    <url>https://komiter.com</url>
 
     <licenses>
         <license>
@@ -25,21 +24,6 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
-
-    <developers>
-        <developer>
-            <id>Kino1994</id>
-            <name>Kino1994</name>
-            <url>https://github.com/Kino1994</url>
-        </developer>
-    </developers>
-
-    <scm>
-        <url>https://github.com/Kino1994/komiter/tree/v4.3.0</url>
-        <connection>scm:git:https://github.com/Kino1994/komiter.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/Kino1994/komiter.git</developerConnection>
-        <tag>v4.3.0</tag>
-    </scm>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -50,8 +34,7 @@
         <spark.version>4.3.0</spark.version>
         <kafka.version>3.9.2</kafka.version>
         <scalatest.version>3.2.19</scalatest.version>
-        <!-- Leave a release as a draft in the Central Portal for review; CI passes true. -->
-        <central.autoPublish>false</central.autoPublish>
+        <scoverage.scalacPluginVersion>2.5.2</scoverage.scalacPluginVersion>
     </properties>
 
     <dependencies>
@@ -131,6 +114,9 @@
                 <executions>
                     <execution>
                         <goals>
+                            <!-- add-source registers src/main/scala as a source root, which
+                                 the coverage report needs to map statements back to files. -->
+                            <goal>add-source</goal>
                             <goal>compile</goal>
                             <goal>testCompile</goal>
                         </goals>
@@ -144,6 +130,12 @@
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
                 <version>2.2.0</version>
+                <configuration>
+                    <!-- The module opens Spark's own launcher passes on Java 17; a test JVM
+                         does not get them from spark-submit, and Spark 3.5 will not start
+                         without them. Ignored where unneeded. -->
+                    <argLine>-XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false</argLine>
+                </configuration>
                 <executions>
                     <execution>
                         <id>test</id>
@@ -153,68 +145,21 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Coverage, on demand (it recompiles everything instrumented, so it is not bound
+                 to the lifecycle): `mvn scoverage:report` writes target/site/scoverage, and
+                 `mvn scoverage:check` fails the build below the minimums. The plugin itself
+                 needs Maven to run on JDK 17. -->
+            <plugin>
+                <groupId>org.scoverage</groupId>
+                <artifactId>scoverage-maven-plugin</artifactId>
+                <version>2.1.5</version>
+                <configuration>
+                    <scalacPluginVersion>${scoverage.scalacPluginVersion}</scalacPluginVersion>
+                    <minimumCoverage>95</minimumCoverage>
+                    <minimumCoverageBranchTotal>90</minimumCoverageBranchTotal>
+                    <failOnMinimum>true</failOnMinimum>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <!-- Publishing to Maven Central: tools/publish.sh runs `mvn -Prelease deploy`. -->
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>net.alchim31.maven</groupId>
-                        <artifactId>scala-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>scaladoc-jar</id>
-                                <goals>
-                                    <goal>add-source</goal>
-                                    <goal>doc-jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>3.3.1</version>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar-no-fork</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.8</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.sonatype.central</groupId>
-                        <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.12.0</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <publishingServerId>central</publishingServerId>
-                            <autoPublish>${central.autoPublish}</autoPublish>
-                            <waitUntil>validated</waitUntil>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

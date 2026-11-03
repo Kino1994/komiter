@@ -145,6 +145,11 @@ regular consumer would, which is exactly why existing tooling picks it up with n
 `KafkaConsumer` instances are cached and reused across micro-batches, keyed by the full Kafka
 param set, so the bootstrap cost is paid once instead of on every commit.
 
+**Micro-batch queries only.** Spark reports no progress for continuous processing
+(`Trigger.Continuous`), so there is nothing for Komiter to commit there; such a query runs
+exactly as it would without it. Joins and aggregations are fine, including stream-static joins:
+a batch read of Kafka on the static side has no progress of its own and is never committed.
+
 ## Compatibility
 
 **The artifact version is the Spark version.** `komiter_2.13:4.2.0` is the build for Spark

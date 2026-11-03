@@ -63,27 +63,24 @@ STREAMING_PKG = {
 #    that explains the choice, and the match case itself.
 STREAM_IMPORTS = {
     "a": (
-        "import org.apache.spark.sql.execution.{RDDScanExec, RowDataSourceScanExec, SparkPlan}\n"
-        "import org.apache.spark.sql.execution.datasources.v2.{ContinuousScanExec, DataSourceRDDPartition, DataSourceV2ScanExecBase, MicroBatchScanExec}"
+        "import org.apache.spark.sql.execution.{RDDScanExec, SparkPlan}\n"
+        "import org.apache.spark.sql.execution.datasources.v2.{DataSourceRDDPartition, MicroBatchScanExec}"
     ),
     "bcd": (
-        "import org.apache.spark.sql.execution.{RDDScanExec, RowDataSourceScanExec, SparkPlan, StreamSourceAwareSparkPlan}\n"
-        "import org.apache.spark.sql.execution.datasources.v2.{ContinuousScanExec, DataSourceRDDPartition, DataSourceV2ScanExecBase}"
+        "import org.apache.spark.sql.execution.{RDDScanExec, SparkPlan, StreamSourceAwareSparkPlan}\n"
+        "import org.apache.spark.sql.execution.datasources.v2.{DataSourceRDDPartition, MicroBatchScanExec}"
     ),
 }
 
 STREAM_DOC = {
     "a": """   * On this Spark version the [[SparkDataStream]] is recovered by a typed pattern match
-   * against `MicroBatchScanExec` and `ContinuousScanExec`, both of which expose a public
-   * `stream` accessor. Spark 4.0 later introduced a `StreamSourceAwareSparkPlan` trait as a
-   * unified, supported way to do this, but it does not exist here, so the typed match is
-   * the only route available.""",
+   * against `MicroBatchScanExec`, which exposes a public `stream` accessor. Spark 4.0 later
+   * introduced a `StreamSourceAwareSparkPlan` trait as a unified, supported way to do this,
+   * but it does not exist here, so the typed match is the only route available.""",
     "bcd": """   * Spark 4.0 introduced `StreamSourceAwareSparkPlan` as the public way for external code to
    * recover the [[SparkDataStream]] of a streaming scan, and `MicroBatchScanExec` implements
-   * it. We use that trait first because it is the supported public API for this purpose.
-   * `ContinuousScanExec` does not implement the trait, so it is still handled with a separate
-   * pattern-match case against its public `stream` accessor. On Spark 3.3–3.5 the trait does
-   * not exist and a typed match against `MicroBatchScanExec` is used for both branches.""",
+   * it. We use it because it is the supported public API for this purpose. On Spark 3.3–3.5
+   * the trait does not exist and a typed match against `MicroBatchScanExec` is used instead.""",
 }
 
 STREAM_CASE = {
@@ -158,6 +155,15 @@ def retarget_sources(variant):
     INSPECTOR.write_text(text)
 
 
+def scoverage_plugin(scala_version):
+    """The scalac-scoverage-plugin release published for this exact Scala version.
+
+    The compiler plugin is built per full Scala version, and the 2.5 line does not go back as
+    far as 2.13.8 (the 2.13 build of the Spark 3.5 releases), which 2.0.11 still covers.
+    """
+    return "2.0.11" if scala_version == "2.13.8" else "2.5.2"
+
+
 def render_pom(spark, spec):
     """Emit pom.xml.
 
@@ -166,10 +172,8 @@ def render_pom(spark, spec):
     profile is emitted; where it ships only 2.13 there is nothing to cross-build and the
     profile is left out rather than sitting there unusable.
 
-    The `release` profile is always present. It adds what Maven Central requires on top of
-    the plain jar (sources, scaladoc as the javadoc jar, GPG signatures) and hands the result
-    to the Central Portal; tools/publish.sh is what activates it. Keeping it in a profile is
-    what lets an ordinary build run without a signing key.
+    Nothing here is about publishing: what Maven Central needs on top of this pom is added by
+    komiter-release, in a throwaway worktree of the tag it publishes.
     """
     default = spec["default_binary"]
     cross = len(spec["scala"]) > 1
@@ -183,70 +187,12 @@ def render_pom(spark, spec):
             <properties>
                 <scala.version>{spec['scala']['2.13']}</scala.version>
                 <scala.binary.version>2.13</scala.binary.version>
+                <scoverage.scalacPluginVersion>{scoverage_plugin(spec['scala']['2.13'])}</scoverage.scalacPluginVersion>
             </properties>
         </profile>"""
 
-    profile = f"""
-    <profiles>
-        <!-- Publishing to Maven Central: tools/publish.sh runs `mvn -Prelease deploy`. -->
-        <profile>
-            <id>release</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>net.alchim31.maven</groupId>
-                        <artifactId>scala-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>scaladoc-jar</id>
-                                <goals>
-                                    <goal>add-source</goal>
-                                    <goal>doc-jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>3.3.1</version>
-                        <executions>
-                            <execution>
-                                <id>attach-sources</id>
-                                <goals>
-                                    <goal>jar-no-fork</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.8</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.sonatype.central</groupId>
-                        <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.12.0</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <publishingServerId>central</publishingServerId>
-                            <autoPublish>${{central.autoPublish}}</autoPublish>
-                            <waitUntil>validated</waitUntil>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>{cross_profile}
+    profile = "" if not cross_profile else f"""
+    <profiles>{cross_profile}
     </profiles>
 """
 
@@ -268,7 +214,6 @@ def render_pom(spark, spec):
 
     <name>Komiter</name>
     <description>Kafka offset committer for Spark Structured Streaming, built for Spark {spark}</description>
-    <url>https://komiter.com</url>
 
     <licenses>
         <license>
@@ -277,21 +222,6 @@ def render_pom(spark, spec):
             <distribution>repo</distribution>
         </license>
     </licenses>
-
-    <developers>
-        <developer>
-            <id>Kino1994</id>
-            <name>Kino1994</name>
-            <url>https://github.com/Kino1994</url>
-        </developer>
-    </developers>
-
-    <scm>
-        <url>https://github.com/Kino1994/komiter/tree/v{spark}</url>
-        <connection>scm:git:https://github.com/Kino1994/komiter.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/Kino1994/komiter.git</developerConnection>
-        <tag>v{spark}</tag>
-    </scm>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -302,8 +232,7 @@ def render_pom(spark, spec):
         <spark.version>{spark}</spark.version>
         <kafka.version>{spec['kafka']}</kafka.version>
         <scalatest.version>3.2.19</scalatest.version>
-        <!-- Leave a release as a draft in the Central Portal for review; CI passes true. -->
-        <central.autoPublish>false</central.autoPublish>
+        <scoverage.scalacPluginVersion>{scoverage_plugin(spec['scala'][default])}</scoverage.scalacPluginVersion>
     </properties>
 
     <dependencies>
@@ -383,6 +312,9 @@ def render_pom(spark, spec):
                 <executions>
                     <execution>
                         <goals>
+                            <!-- add-source registers src/main/scala as a source root, which
+                                 the coverage report needs to map statements back to files. -->
+                            <goal>add-source</goal>
                             <goal>compile</goal>
                             <goal>testCompile</goal>
                         </goals>
@@ -396,6 +328,12 @@ def render_pom(spark, spec):
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
                 <version>2.2.0</version>
+                <configuration>
+                    <!-- The module opens Spark's own launcher passes on Java 17; a test JVM
+                         does not get them from spark-submit, and Spark 3.5 will not start
+                         without them. Ignored where unneeded. -->
+                    <argLine>-XX:+IgnoreUnrecognizedVMOptions --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Djdk.reflect.useDirectMethodHandle=false</argLine>
+                </configuration>
                 <executions>
                     <execution>
                         <id>test</id>
@@ -404,6 +342,21 @@ def render_pom(spark, spec):
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Coverage, on demand (it recompiles everything instrumented, so it is not bound
+                 to the lifecycle): `mvn scoverage:report` writes target/site/scoverage, and
+                 `mvn scoverage:check` fails the build below the minimums. The plugin itself
+                 needs Maven to run on JDK 17. -->
+            <plugin>
+                <groupId>org.scoverage</groupId>
+                <artifactId>scoverage-maven-plugin</artifactId>
+                <version>2.1.5</version>
+                <configuration>
+                    <scalacPluginVersion>${{scoverage.scalacPluginVersion}}</scalacPluginVersion>
+                    <minimumCoverage>95</minimumCoverage>
+                    <minimumCoverageBranchTotal>90</minimumCoverageBranchTotal>
+                    <failOnMinimum>true</failOnMinimum>
+                </configuration>
             </plugin>
         </plugins>
     </build>

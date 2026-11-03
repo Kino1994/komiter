@@ -22,13 +22,13 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-import org.apache.kafka.clients.consumer.{KafkaConsumer, OffsetAndMetadata}
+import org.apache.kafka.clients.consumer.{Consumer, KafkaConsumer, OffsetAndMetadata}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.streaming.runtime.{StreamExecution, StreamingQueryWrapper}
 import org.apache.spark.sql.kafka010.KafkaSourceInspector
-import org.apache.spark.sql.streaming.{SourceProgress, StreamingQueryListener}
+import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener}
 
 
 class Komiter extends StreamingQueryListener with Logging {
@@ -43,7 +43,7 @@ class Komiter extends StreamingQueryListener with Logging {
   // thread, but the cache is concurrent to stay safe and a JVM shutdown hook closes
   // every cached consumer on exit.
   private val consumers =
-    new ConcurrentHashMap[Map[String, Object], KafkaConsumer[String, String]]()
+    new ConcurrentHashMap[Map[String, Object], Consumer[String, String]]()
 
   Runtime.getRuntime.addShutdownHook(new Thread("kafka-offset-committer-shutdown") {
     override def run(): Unit = closeAll()
@@ -54,44 +54,17 @@ class Komiter extends StreamingQueryListener with Logging {
   override def onQueryProgress(event: StreamingQueryListener.QueryProgressEvent): Unit = {
     val query = SparkSession.active.streams.get(event.progress.id)
     if (query != null) {
-      val streamExecOpt: Option[StreamExecution] = query match {
-        case wrapper: StreamingQueryWrapper => Option(wrapper.streamingQuery)
-        case se: StreamExecution => Option(se)
-        case _ =>
-          logWarning(s"Unexpected type of streaming query: ${query.getClass}")
-          None
-      }
-
-      streamExecOpt.foreach { streamExec =>
+      streamExecutionOf(query).foreach { streamExec =>
         val ex = streamExec.lastExecution
         if (ex != null) {
-          // Resolve each Kafka plan leaf to its entry in
-          // `StreamingQueryProgress.sources` by stream identity. Spark reports one
-          // `SourceProgress` per distinct source and sets its `description` to the
-          // stream's `toString`, so matching the leaf's stream `toString` against
-          // `SourceProgress.description` maps every leaf to its progress entry, even
-          // when a single Kafka source subscribes to many topics and therefore reads
-          // the accumulated end offsets of all of them.
-          val progressByDescription: Map[String, SourceProgress] =
-            event.progress.sources.map(sp => sp.description -> sp).toMap
-
+          // Each Kafka plan leaf is matched to its entry in the progress sources by stream
+          // identity; see `resolveSource`.
+          val sources = event.progress.sources.toSeq
           val inspector = new KafkaSourceInspector(ex.executedPlan)
           inspector.populateKafkaParams.foreach { case (streamOpt, params) =>
             params.get(CONFIG_KEY_GROUP_ID) match {
               case Some(groupId) =>
-                val sourceProgressOpt = streamOpt.map(_.toString)
-                  .flatMap(progressByDescription.get)
-                  .orElse {
-                    // With a single Kafka source in the query its offsets can only
-                    // belong to the one reported source, so use it directly when the
-                    // stream handle is not available to match by identity.
-                    if (event.progress.sources.length == 1) {
-                      event.progress.sources.headOption
-                    } else {
-                      None
-                    }
-                  }
-                sourceProgressOpt match {
+                resolveSource(streamOpt.map(_.toString), sources)(_.description) match {
                   case Some(sourceProgress) =>
                     val tpToOffsets = inspector.partitionOffsets(sourceProgress.endOffset)
 
@@ -133,14 +106,26 @@ class Komiter extends StreamingQueryListener with Logging {
 
   override def onQueryTerminated(event: StreamingQueryListener.QueryTerminatedEvent): Unit = {}
 
-  private def getOrCreateConsumer(
-      params: Map[String, Object]): KafkaConsumer[String, String] = {
-    consumers.computeIfAbsent(
-      params,
-      (p: Map[String, Object]) => new KafkaConsumer[String, String](p.asJava))
+  /** The execution behind a query handle, as `StreamingQueryManager.get` hands it out. */
+  private[komiter] def streamExecutionOf(query: StreamingQuery): Option[StreamExecution] = {
+    query match {
+      case wrapper: StreamingQueryWrapper => Option(wrapper.streamingQuery)
+      case se: StreamExecution => Option(se)
+      case _ =>
+        logWarning(s"Unexpected type of streaming query: ${query.getClass}")
+        None
+    }
   }
 
-  private def closeQuietly(consumer: KafkaConsumer[String, String]): Unit = {
+  private def getOrCreateConsumer(params: Map[String, Object]): Consumer[String, String] = {
+    consumers.computeIfAbsent(params, (p: Map[String, Object]) => createConsumer(p))
+  }
+
+  /** The consumer that commits for one set of Kafka params. Overridable for tests. */
+  protected def createConsumer(params: Map[String, Object]): Consumer[String, String] =
+    new KafkaConsumer[String, String](params.asJava)
+
+  private def closeQuietly(consumer: Consumer[String, String]): Unit = {
     try {
       consumer.close(Duration.ofSeconds(5))
     } catch {
@@ -155,6 +140,23 @@ class Komiter extends StreamingQueryListener with Logging {
 }
 
 object Komiter {
+  /**
+   * The source a Kafka plan leaf belongs to, among those the progress event reports.
+   *
+   * Spark reports one `SourceProgress` per distinct source and sets its `description` to the
+   * stream's `toString`, so the leaf's stream description finds its entry even when a single
+   * Kafka source subscribes to many topics and reads the accumulated offsets of all of them.
+   * Without a stream handle (or without a match), the offsets can only be attributed when the
+   * query has a single source; with several there is no telling, and nothing is returned.
+   */
+  private[komiter] def resolveSource[S](streamDescription: Option[String], sources: Seq[S])(
+      description: S => String): Option[S] = {
+    val byDescription = sources.map(s => description(s) -> s).toMap
+    streamDescription.flatMap(byDescription.get).orElse {
+      if (sources.length == 1) sources.headOption else None
+    }
+  }
+
   private val CONFIG_KEY_GROUP_ID = "consumer.commit.groupid"
   val CONFIG_KEY_GROUP_ID_DATA_SOURCE_OPTION: String = "kafka." + CONFIG_KEY_GROUP_ID
 }
